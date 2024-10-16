@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloco não daltônico</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        canvas {
+            background-color: #d8e3e7;
+            border: 4px solid #444;
+            box-shadow: 3px 3px 15px rgba(0, 0, 0, 0.6);
+        }
+
+        .scoreboard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 22px;
+            color: #333;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            color: red;
+            display: none; /* Ocultar inicialmente */
+        }
+    </style>
+</head>
+<body>
+<div class="scoreboard">Pontuação: <span id="score">0</span> | Vidas: <span id="lives">3</span></div>
+<div class="game-over" id="gameOverMessage">Fim de Jogo! Pressione Enter para Reiniciar.</div>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<script>
+// Inicializa o canvas e o contexto de renderização
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Configurações do jogador
+const playerConfig = {
+    pos: { x: 50, y: 300 }, // Posição inicial do jogador
+    size: { width: 40, height: 50 }, // Tamanho do jogador
+    speed: 5, // Velocidade de movimento do jogador
+    velocityY: 0, // Velocidade vertical do jogador
+    jumping: false, // Verifica se o jogador está pulando
+    grounded: false, // Verifica se o jogador está no chão
+    jumpCount: 0, // Contador de pulos
+    maxJumps: 2 // Número máximo de pulos permitidos
+};
+
+// Parâmetros de gravidade e pulo
+const GRAVITY = 0.8; // Força da gravidade
+const JUMP_STRENGTH = -12; // Força do pulo
+let playerScore = 0; // Pontuação do jogador
+let playerLives = 3; // Vidas do jogador
+
+// Definições das plataformas
+const platformsList = [
+    { x: 0, y: 350, width: 800, height: 50 },
+    { x: 150, y: 250, width: 120, height: 10 },
+    { x: 400, y: 200, width: 120, height: 10 },
+    { x: 600, y: 150, width: 120, height: 10 }
+];
+
+// Inimigos em movimento
+const enemyList = [
+    { x: 300, y: 320, width: 30, height: 30, speed: 2, direction: 1, startX: 300 },
+    { x: 500, y: 320, width: 30, height: 30, speed: 2, direction: -1, startX: 500 }
+];
+
+// Controle de teclas
+let keysPressed = { right: false, left: false, up: false }; // Armazena o estado das teclas pressionadas
+let isGameOver = false; // Variável para controlar se o jogo está em estado "Game Over"
+
+// Detecta teclas pressionadas
+window.addEventListener('keydown', function(e) {
+    switch (e.code) {
+        case 'ArrowRight': keysPressed.right = true; break; // Se a tecla da direita for pressionada
+        case 'ArrowLeft': keysPressed.left = true; break; // Se a tecla da esquerda for pressionada
+        case 'ArrowUp':
+            // Permite que o jogador pule se o número máximo de pulos não foi atingido
+            if (playerConfig.jumpCount < playerConfig.maxJumps) {
+                playerConfig.jumping = true;
+                playerConfig.velocityY = JUMP_STRENGTH;
+                playerConfig.jumpCount++;
+            }
+            break;
+        case 'Enter':
+            // Reinicia o jogo se estiver "Game Over"
+            if (isGameOver) restartGame();
+            break;
+    }
+});
+
+// Detecta quando as teclas são liberadas
+window.addEventListener('keyup', function(e) {
+    switch (e.code) {
+        case 'ArrowRight': keysPressed.right = false; break; // Solta a tecla da direita
+        case 'ArrowLeft': keysPressed.left = false; break; // Solta a tecla da esquerda
+    }
+});
+
+// Função principal do jogo
+function mainLoop() {
+    if (isGameOver) return; // Se o jogo está em estado "Game Over", não execute o loop
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpa o canvas a cada iteração
+
+    playerConfig.velocityY += GRAVITY; // Aplica a gravidade à velocidade vertical do jogador
+
+    // Movimenta o jogador com base nas teclas pressionadas
+    if (keysPressed.right) playerConfig.pos.x += playerConfig.speed; // Move para a direita
+    if (keysPressed.left) playerConfig.pos.x -= playerConfig.speed; // Move para a esquerda
+
+    playerConfig.grounded = false; // Reseta a verificação de estar no chão
+
+    // Desenha as plataformas e verifica colisões com o jogador
+    platformsList.forEach((platform) => {
+        ctx.fillStyle = '#8B4513'; // Cor marrom para plataformas
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+
+        // Colisão do jogador com a plataforma
+        if (playerConfig.pos.x < platform.x + platform.width &&
+            playerConfig.pos.x + playerConfig.size.width > platform.x &&
+            playerConfig.pos.y + playerConfig.size.height > platform.y &&
+            playerConfig.pos.y < platform.y + platform.height) {
+            playerConfig.pos.y = platform.y - playerConfig.size.height; // Coloca o jogador em cima da plataforma
+            playerConfig.velocityY = 0; // Reseta a velocidade vertical
+            playerConfig.jumping = false; // O jogador não está mais pulando
+            playerConfig.grounded = true; // O jogador está no chão
+            playerConfig.jumpCount = 0; // Reseta o contador de pulos
+            playerScore++; // Incrementa a pontuação
+            document.getElementById('score').textContent = playerScore; // Atualiza a pontuação na tela
+        }
+    });
+
+    // Se o jogador estiver no chão, reseta a velocidade vertical
+    if (playerConfig.grounded) playerConfig.velocityY = 0;
+
+    playerConfig.pos.y += playerConfig.velocityY; // Atualiza a posição vertical do jogador
+
+    // Limita os movimentos do jogador
+    if (playerConfig.pos.x < 0) playerConfig.pos.x = 0; // Limite à esquerda
+    if (playerConfig.pos.x + playerConfig.size.width > canvas.width) {
+        playerConfig.pos.x = canvas.width - playerConfig.size.width; // Limite à direita
+    }
+    if (playerConfig.pos.y + playerConfig.size.height > canvas.height) {
+        playerConfig.pos.y = canvas.height - playerConfig.size.height; // Mantém o jogador dentro do canvas
+        playerConfig.jumping = false; // O jogador não está mais pulando
+        playerLives--; // Perde uma vida
+        document.getElementById('lives').textContent = playerLives; // Atualiza as vidas na tela
+        checkGameOver(); // Verifica se o jogo terminou
+    }
+
+    // Desenha o jogador
+    ctx.fillStyle = '#1E90FF'; // Cor azul para o jogador
+    ctx.fillRect(playerConfig.pos.x, playerConfig.pos.y, playerConfig.size.width, playerConfig.size.height);
+
+    // Move e desenha inimigos
+    enemyList.forEach(enemy => {
+        ctx.fillStyle = 'red'; // Cor vermelha para inimigos
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height); // Desenha o inimigo
+        enemy.x += enemy.speed * enemy.direction; // Atualiza a posição do inimigo
+
+        // Altera a direção do inimigo se atingir a borda do canvas
+        if (enemy.x + enemy.width > canvas.width || enemy.x < 0) {
+            enemy.direction *= -1; // Inverte a direção
+        }
+
+        // Colisão com o jogador
+        if (playerConfig.pos.x < enemy.x + enemy.width &&
+            playerConfig.pos.x + playerConfig.size.width > enemy.x &&
+            playerConfig.pos.y + playerConfig.size.height > enemy.y &&
+            playerConfig.pos.y < enemy.y + enemy.height) {
+            playerLives--; // Perde uma vida
+            document.getElementById('lives').textContent = playerLives; // Atualiza as vidas na tela
+            checkGameOver(); // Verifica se o jogo terminou
+        }
+    });
+
+    requestAnimationFrame(mainLoop); // Solicita o próximo quadro do jogo
+}
+
+// Função para verificar se o jogo terminou
+function checkGameOver() {
+    if (playerLives <= 0) {
+        isGameOver = true; // Define o estado como "Game Over"
+        enemyList.forEach(enemy => {
+            enemy.x = enemy.startX; // Retorna inimigos para a posição inicial
+        });
+        document.getElementById('gameOverMessage').style.display = 'block'; // Exibe a mensagem de fim de jogo
+    }
+}
+
+// Reinicia o jogo
+function restartGame() {
+    isGameOver = false; // Reseta o estado do jogo
+    playerConfig.pos = { x: 50, y: 300 }; // Reseta a posição do jogador
+    playerLives = 3; // Reseta as vidas do jogador
+    playerScore = 0; // Reseta a pontuação do jogador
+    document.getElementById('lives').textContent = playerLives; // Atualiza as vidas na tela
+    document.getElementById('score').textContent = playerScore; // Atualiza a pontuação na tela
+    document.getElementById('gameOverMessage').style.display = 'none'; // Oculta a mensagem de fim de jogo
+    enemyList.forEach(enemy => {
+        enemy.x = enemy.startX; // Retorna inimigos para a posição inicial
+    });
+    mainLoop(); // Reinicia o loop do jogo
+}
+
+// Inicia o loop do jogo
+mainLoop();
+
+</script>
+</body>
+</html>
