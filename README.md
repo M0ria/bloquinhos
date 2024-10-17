@@ -21,8 +21,10 @@ Quando você perder todas as suas vidas, é só pressionar **Enter** para reinic
 - **CSS**: Para deixar algo claro para o jogador.
 - **JavaScript**: A lógica por trás do jogo.
 
-## Como Rodar o Jogo 
+## Aparência
+![image](https://github.com/user-attachments/assets/d8368a1b-2850-4c57-a26b-c6fec8b0eb15)
 
+## Como Rodar o Jogo 
 Se você quiser experimentar o jogo por conta própria, siga estes passos:
 
 1. Clone este repositório para a sua máquina:
